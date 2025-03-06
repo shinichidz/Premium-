@@ -5,12 +5,8 @@
 ]]
 
 -- Configuration
--- Use the current Replit URL when the script is executed
-local API_BASE_URL = "https://" .. (os.getenv("REPL_SLUG") and os.getenv("REPL_SLUG") .. "." .. os.getenv("REPL_OWNER") .. ".repl.co" or "shinichihub-keyserver.replit.app")
+local API_BASE_URL = "https://shinichihub-keyserver.replit.app"
 local API_ENDPOINT = "/api/verify-key"
-
--- Print connection information for debugging
-print("[SHINICHIHUB] Connecting to: " .. API_BASE_URL .. API_ENDPOINT)
 
 -- Wait until game loads
 repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer
