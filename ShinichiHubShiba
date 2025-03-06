@@ -1,11 +1,9 @@
 local HttpService = game:GetService("HttpService")
-local KeyFileURL = "https://replit.com/@huyb57104/My-bot/raw/main/key.txt"  -- File chứa key
-
-getgenv().Key = getgenv().Key or "Nhập key của bạn vào đây"
+local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/show-keys"
 
 local function isValidKey(key)
     local success, response = pcall(function()
-        return HttpService:GetAsync(KeyFileURL)
+        return HttpService:GetAsync(KeyCheckURL)
     end)
     
     if success then
@@ -19,8 +17,9 @@ local function isValidKey(key)
 end
 
 if isValidKey(getgenv().Key) then
-    print("Key hợp lệ! Kích hoạt script...")
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/BountyAimBot/refs/heads/main/Baor"))()
+    print("Key hợp lệ! Chạy script...")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/your-username/your-repo/main/ShinichiHubShiba.lua"))()
 else
-    print("Key không hợp lệ! Vui lòng nhập key đúng.")
+    print("Key không hợp lệ! Thoát game...")
+    game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key.")
 end
