@@ -1,85 +1,191 @@
 
-repeat wait() until game:IsLoaded() and game.Players.LocalPlayer
+--[[
+  SHINICHIHUB PREMIUM
+  Created by Shinichidz
+]]
 
-local HttpService = game:GetService("HttpService")
-local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/api/verify-key?key="
+-- Configuration
+local API_BASE_URL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev"
+local API_ENDPOINT = "/api/verify-key"
 
-local function verifyKey(key)
-    print("Đang kiểm tra key: " .. key)
-    
-    local success, response = pcall(function()
-        return HttpService:GetAsync(KeyCheckURL .. key)
-    end)
+-- Wait until game loads
+repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer
 
-    if success then
-        print("Phản hồi từ server: " .. response)
-        local decodeSuccess, data = pcall(function()
-            return HttpService:JSONDecode(response)
-        end)
-
-        if decodeSuccess then
-            print("Dữ liệu đã giải mã: " .. HttpService:JSONEncode(data))
-            return data.valid == true
-        else
-            print("Lỗi khi giải mã JSON: " .. response)
-            return false
-        end
-    else
-        print("Lỗi kết nối: " .. tostring(response))
-        return false
-    end
-end
-
-local key = getgenv().Key
-
-if not key then
-    warn("SHINICHIHUB: Chưa nhập key! Vui lòng đặt getgenv().Key trước khi chạy script.")
+-- Check if key is provided
+if not getgenv().Key then
+    warn("[SHINICHIHUB] No key provided. Please set your key using getgenv().Key")
     return
 end
 
-local isValid = verifyKey(key)
-
-if isValid then
-    print("SHINICHIHUB: Xác thực key thành công!")
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiHubShiba"))()
-else
-    print("SHINICHIHUB: Key không hợp lệ!")
-    
-    -- Hiển thị lỗi UI
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ShinichiHubError"
-    ScreenGui.Parent = game.CoreGui
-
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 300, 0, 150)
-    Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Frame.BorderSizePixel = 0
-    Frame.Parent = ScreenGui
-
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    Title.BorderSizePixel = 0
-    Title.Text = "SHINICHIHUB ERROR"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.Font = Enum.Font.SourceSansBold
-    Title.TextSize = 18
-    Title.Parent = Frame
-
-    local Message = Instance.new("TextLabel")
-    Message.Size = UDim2.new(1, -20, 1, -60)
-    Message.Position = UDim2.new(0, 10, 0, 40)
-    Message.BackgroundTransparency = 1
-    Message.Text = "Key không hợp lệ! Vui lòng kiểm tra lại key hoặc lấy key mới từ Discord SHINICHIHUB."
-    Message.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Message.Font = Enum.Font.SourceSans
-    Message.TextSize = 16
-    Message.TextWrapped = true
-    Message.Parent = Frame
-    
-    -- Kick người chơi sau một khoảng thời gian
-    wait(5)
-    game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key từ Discord.")
+-- Helper functions
+local function notify(title, text, duration)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = title or "SHINICHIHUB",
+        Text = text,
+        Duration = duration or 5
+    })
 end
+
+-- Verify key with server
+local function verifyKey()
+    local success, response = pcall(function()
+        return game:HttpGet(API_BASE_URL .. API_ENDPOINT .. "?key=" .. getgenv().Key)
+    end)
+    
+    if not success then
+        notify("SHINICHIHUB", "Failed to connect to authentication server", 10)
+        return false
+    end
+    
+    local status, result = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(response)
+    end)
+    
+    if not status then
+        notify("SHINICHIHUB", "Failed to parse server response", 10)
+        return false
+    end
+    
+    -- Check if key is valid
+    if not result.valid then
+        local message = result.message or "Invalid key"
+        notify("SHINICHIHUB", message, 10)
+        return false
+    end
+    
+    -- Save HWID if needed
+    if result.hwid == "" then
+        -- Get device identifier
+        local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+        -- Set HWID for this key
+        pcall(function()
+            game:HttpGet(API_BASE_URL .. "/api/set-hwid?key=" .. getgenv().Key .. "&hwid=" .. hwid)
+        end)
+    end
+    
+    return result.valid
+end
+
+-- Main script execution
+local function main()
+    notify("SHINICHIHUB", "Checking your key...", 3)
+    
+    -- Verify key with server
+    if not verifyKey() then
+        notify("SHINICHIHUB", "Invalid key! Please check your key and try again.", 10)
+        return
+    end
+    
+    notify("SHINICHIHUB", "Key verified! Loading script...", 3)
+    
+    -- Load your main script here
+    loadMainScript()
+end
+
+-- Main script loader
+function loadMainScript()
+    -- Notify user
+    notify("SHINICHIHUB", "Key verified! Loading main script...", 3)
+    
+    -- Load the main premium script when key is valid
+    local success, err = pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiHubMain"))()
+    end)
+    
+    if not success then
+        notify("SHINICHIHUB", "Error loading main script: " .. tostring(err), 10)
+        
+        -- Fallback to basic GUI if main script fails to load
+        createBasicGUI()
+    end
+end
+
+-- Fallback basic GUI if main script fails to load
+function createBasicGUI()
+    notify("SHINICHIHUB", "Using fallback interface", 5)
+    
+    -- Create main GUI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "ShinichiHubGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 300, 0, 200)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    -- Corner
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = mainFrame
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Text = "SHINICHIHUB PREMIUM"
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 18
+    title.Font = Enum.Font.GothamBold
+    title.Parent = mainFrame
+    
+    -- Status
+    local status = Instance.new("TextLabel")
+    status.Text = "Status: Active"
+    status.Size = UDim2.new(1, 0, 0, 20)
+    status.Position = UDim2.new(0, 0, 0, 40)
+    status.BackgroundTransparency = 1
+    status.TextColor3 = Color3.fromRGB(0, 255, 0)
+    status.TextSize = 14
+    status.Font = Enum.Font.Gotham
+    status.Parent = mainFrame
+    
+    -- Key display
+    local keyDisplay = Instance.new("TextLabel")
+    keyDisplay.Text = "Key: " .. string.sub(getgenv().Key, 1, 10) .. "..." 
+    keyDisplay.Size = UDim2.new(1, 0, 0, 20)
+    keyDisplay.Position = UDim2.new(0, 0, 0, 60)
+    keyDisplay.BackgroundTransparency = 1
+    keyDisplay.TextColor3 = Color3.fromRGB(200, 200, 200)
+    keyDisplay.TextSize = 14
+    keyDisplay.Font = Enum.Font.Gotham
+    keyDisplay.Parent = mainFrame
+    
+    -- Example feature button
+    local button = Instance.new("TextButton")
+    button.Text = "Activate ESP"
+    button.Size = UDim2.new(0, 120, 0, 30)
+    button.Position = UDim2.new(0.5, -60, 0, 100)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Font = Enum.Font.Gotham
+    button.TextSize = 14
+    button.Parent = mainFrame
+    
+    -- Button corner
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 5)
+    buttonCorner.Parent = button
+    
+    -- Button hover effect
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    end)
+    
+    -- Button click
+    button.MouseButton1Click:Connect(function()
+        notify("SHINICHIHUB", "ESP activated!", 3)
+        -- Add ESP functionality here
+    end)
+end
+
+-- Start script
+main()
