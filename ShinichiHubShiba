@@ -4,141 +4,82 @@ repeat wait() until game:IsLoaded() and game.Players.LocalPlayer
 local HttpService = game:GetService("HttpService")
 local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/api/verify-key?key="
 
-local function isValidKey(key)
+local function verifyKey(key)
     print("Đang kiểm tra key: " .. key)
     
-    -- Thêm xử lý lỗi khi key không hợp lệ
-    if not key or key == "" or key == "YOUR-KEY-HERE" then
+    local success, response = pcall(function()
+        return HttpService:GetAsync(KeyCheckURL .. key)
+    end)
+
+    if success then
+        print("Phản hồi từ server: " .. response)
+        local decodeSuccess, data = pcall(function()
+            return HttpService:JSONDecode(response)
+        end)
+
+        if decodeSuccess then
+            print("Dữ liệu đã giải mã: " .. HttpService:JSONEncode(data))
+            return data.valid == true
+        else
+            print("Lỗi khi giải mã JSON: " .. response)
+            return false
+        end
+    else
+        print("Lỗi kết nối: " .. tostring(response))
         return false
     end
-    
-    print("URL: " .. KeyCheckURL .. key)
-    
-    -- Thử tối đa 3 lần nếu có lỗi kết nối
-    for attempt = 1, 3 do
-        local success, response = pcall(function()
-            return HttpService:GetAsync(KeyCheckURL .. key, true)
-        end)
-        
-        if success then
-            print("Nhận được phản hồi từ server")
-            local decodeSuccess, data = pcall(function()
-                return HttpService:JSONDecode(response)
-            end)
-            
-            if decodeSuccess then
-                print("Dữ liệu phản hồi: " .. HttpService:JSONEncode(data))
-                return data.valid == true
-            else
-                print("Lỗi decode JSON: " .. tostring(response))
-                if attempt < 3 then
-                    print("Thử lại lần " .. (attempt + 1) .. "...")
-                    wait(2) -- Đợi 2 giây trước khi thử lại
-                end
-            end
-        else
-            print("Lỗi kết nối (lần " .. attempt .. "): " .. tostring(response))
-            if attempt < 3 then
-                print("Thử lại sau 2 giây...")
-                wait(2)
-            end
-        end
-    end
-    
-    return false
 end
 
--- Kiểm tra key
-if not getgenv().Key then
-    print("CẢNH BÁO: Key chưa được nhập!")
-    game.Players.LocalPlayer:Kick("Vui lòng nhập key! Đọc hướng dẫn trên Discord.")
+local key = getgenv().Key
+
+if not key then
+    warn("SHINICHIHUB: Chưa nhập key! Vui lòng đặt getgenv().Key trước khi chạy script.")
     return
 end
 
--- Thêm UI thông báo đang kiểm tra
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "KeyCheckNotification"
-screenGui.Parent = game:GetService("CoreGui")
+local isValid = verifyKey(key)
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 100)
-frame.Position = UDim2.new(0.5, -125, 0.5, -50)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
-local label = Instance.new("TextLabel")
-label.Size = UDim2.new(1, 0, 1, 0)
-label.BackgroundTransparency = 1
-label.Text = "Đang kiểm tra key...\nVui lòng đợi"
-label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.Font = Enum.Font.SourceSansBold
-label.TextSize = 18
-label.Parent = frame
-
--- Thực hiện kiểm tra key
-local keyResult = isValidKey(getgenv().Key)
-screenGui:Destroy() -- Xóa thông báo
-
-if keyResult then
-    print("Key hợp lệ! Tải script...")
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiMainScript"))()
+if isValid then
+    print("SHINICHIHUB: Xác thực key thành công!")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiHubShiba"))()
 else
-    print("Key không hợp lệ! Thoát game...")
-    -- Hiển thị UI thông báo lỗi
-    local errorGui = Instance.new("ScreenGui")
-    errorGui.Name = "KeyErrorNotification"
-    errorGui.Parent = game:GetService("CoreGui")
-
-    local errorFrame = Instance.new("Frame")
-    errorFrame.Size = UDim2.new(0, 300, 0, 150)
-    errorFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    errorFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    errorFrame.BorderSizePixel = 0
-    errorFrame.Parent = errorGui
-
-    local errorTitle = Instance.new("TextLabel")
-    errorTitle.Size = UDim2.new(1, 0, 0, 30)
-    errorTitle.Position = UDim2.new(0, 0, 0, 0)
-    errorTitle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    errorTitle.BorderSizePixel = 0
-    errorTitle.Text = "SHINICHIHUB ERROR"
-    errorTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    errorTitle.Font = Enum.Font.SourceSansBold
-    errorTitle.TextSize = 18
-    errorTitle.Parent = errorFrame
-
-    local errorMessage = Instance.new("TextLabel")
-    errorMessage.Size = UDim2.new(1, -20, 0, 80)
-    errorMessage.Position = UDim2.new(0, 10, 0, 40)
-    errorMessage.BackgroundTransparency = 1
-    errorMessage.Text = "Key không hợp lệ! Vui lòng kiểm tra key hoặc nhận key mới từ Discord."
-    errorMessage.TextColor3 = Color3.fromRGB(255, 255, 255)
-    errorMessage.Font = Enum.Font.SourceSans
-    errorMessage.TextSize = 16
-    errorMessage.TextWrapped = true
-    errorMessage.Parent = errorFrame
+    print("SHINICHIHUB: Key không hợp lệ!")
     
-    -- Thêm nút OK
-    local okButton = Instance.new("TextButton")
-    okButton.Size = UDim2.new(0, 100, 0, 30)
-    okButton.Position = UDim2.new(0.5, -50, 1, -40)
-    okButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    okButton.BorderSizePixel = 0
-    okButton.Text = "OK"
-    okButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    okButton.Font = Enum.Font.SourceSansBold
-    okButton.TextSize = 16
-    okButton.Parent = errorFrame
+    -- Hiển thị lỗi UI
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "ShinichiHubError"
+    ScreenGui.Parent = game.CoreGui
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 300, 0, 150)
+    Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = ScreenGui
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    Title.BorderSizePixel = 0
+    Title.Text = "SHINICHIHUB ERROR"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 18
+    Title.Parent = Frame
+
+    local Message = Instance.new("TextLabel")
+    Message.Size = UDim2.new(1, -20, 1, -60)
+    Message.Position = UDim2.new(0, 10, 0, 40)
+    Message.BackgroundTransparency = 1
+    Message.Text = "Key không hợp lệ! Vui lòng kiểm tra lại key hoặc lấy key mới từ Discord SHINICHIHUB."
+    Message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Message.Font = Enum.Font.SourceSans
+    Message.TextSize = 16
+    Message.TextWrapped = true
+    Message.Parent = Frame
     
-    okButton.MouseButton1Click:Connect(function()
-        errorGui:Destroy()
-        game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key từ Discord.")
-    end)
-    
+    -- Kick người chơi sau một khoảng thời gian
     wait(5)
-    if errorGui.Parent then
-        errorGui:Destroy()
-        game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key từ Discord.")
-    end
+    game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key từ Discord.")
 end
