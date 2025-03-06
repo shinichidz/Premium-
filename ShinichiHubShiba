@@ -1,191 +1,176 @@
 
---[[
-  SHINICHIHUB PREMIUM
-  Created by Shinichidz
-]]
+-- ShinichHub Shiba Loader
+-- Main entry point for GitHub
+
+-- Wait for game and player to load
+repeat wait() until game:IsLoaded() and game.Players.LocalPlayer
 
 -- Configuration
-local API_BASE_URL = "https://shinichihub-keyserver.replit.app"
-local API_ENDPOINT = "/api/verify-key"
+local VersionInfo = "v1.0.2"
+local ServerURL = "https://shinichihub.replit.app/load"
 
--- Wait until game loads
-repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer
-
--- Check if key is provided
-if not getgenv().Key then
-    warn("[SHINICHIHUB] No key provided. Please set your key using getgenv().Key")
-    return
-end
-
--- Helper functions
-local function notify(title, text, duration)
-    game.StarterGui:SetCore("SendNotification", {
-        Title = title or "SHINICHIHUB",
-        Text = text,
-        Duration = duration or 5
-    })
-end
-
--- Verify key with server
-local function verifyKey()
-    local success, response = pcall(function()
-        return game:HttpGet(API_BASE_URL .. API_ENDPOINT .. "?key=" .. getgenv().Key)
-    end)
+-- Main loader function
+local function LoadShinichHub()
+    -- Check if key is provided, or try multiple keys
+    local Key = getgenv().Key
+    local BackupKeys = getgenv().BackupKeys or {}
     
-    if not success then
-        notify("SHINICHIHUB", "Failed to connect to authentication server", 10)
-        return false
-    end
-    
-    local status, result = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(response)
-    end)
-    
-    if not status then
-        notify("SHINICHIHUB", "Failed to parse server response", 10)
-        return false
-    end
-    
-    -- Check if key is valid
-    if not result.valid then
-        local message = result.message or "Invalid key"
-        notify("SHINICHIHUB", message, 10)
-        return false
-    end
-    
-    -- Save HWID if needed
-    if result.hwid == "" then
-        -- Get device identifier
-        local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-        -- Set HWID for this key
-        pcall(function()
-            game:HttpGet(API_BASE_URL .. "/api/set-hwid?key=" .. getgenv().Key .. "&hwid=" .. hwid)
-        end)
-    end
-    
-    return result.valid
-end
-
--- Main script execution
-local function main()
-    notify("SHINICHIHUB", "Checking your key...", 3)
-    
-    -- Verify key with server
-    if not verifyKey() then
-        notify("SHINICHIHUB", "Invalid key! Please check your key and try again.", 10)
+    if not Key and #BackupKeys == 0 then
+        warn("[ShinichHub] Error: No key provided. Please set your key with getgenv().Key = 'YOUR_KEY'")
         return
     end
     
-    notify("SHINICHIHUB", "Key verified! Loading script...", 3)
+    -- Create a table of all keys to try
+    local KeysToTry = {}
+    if Key then
+        table.insert(KeysToTry, Key)
+    end
     
-    -- Load your main script here
-    loadMainScript()
-end
-
--- Main script loader
-function loadMainScript()
-    -- Notify user
-    notify("SHINICHIHUB", "Key verified! Loading main script...", 3)
+    -- Add backup keys
+    for _, backupKey in ipairs(BackupKeys) do
+        table.insert(KeysToTry, backupKey)
+    end
     
-    -- Load the main premium script when key is valid
-    local success, err = pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiHubMain"))()
-    end)
+    print("[ShinichHub] Initializing ShinichHub Shiba " .. VersionInfo)
     
-    if not success then
-        notify("SHINICHIHUB", "Error loading main script: " .. tostring(err), 10)
-        
-        -- Fallback to basic GUI if main script fails to load
-        createBasicGUI()
+    -- Get hardware ID
+    local function GetHWID()
+        local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+        return hwid or "Unknown"
+    end
+    
+    -- Store previously used keys
+    local UsedKeys = {}
+    if isfile and isfile("ShinichHubKeys.json") then
+        local success, result = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile("ShinichHubKeys.json"))
+        end)
+        if success then
+            UsedKeys = result
+            -- Add current key to used keys if not already there
+            if Key and not table.find(UsedKeys, Key) then
+                table.insert(UsedKeys, Key)
+                if writefile then
+                    pcall(function()
+                        writefile("ShinichHubKeys.json", game:GetService("HttpService"):JSONEncode(UsedKeys))
+                    end)
+                end
+            end
+        end
+    elseif writefile and Key then
+        UsedKeys = {Key}
+        pcall(function()
+            writefile("ShinichHubKeys.json", game:GetService("HttpService"):JSONEncode(UsedKeys))
+        end)
+    end
+    
+    -- Make request to server with current key first
+    local HttpService = game:GetService("HttpService")
+    local success, response
+    
+    -- Function to try authentication with a specific key
+    local function TryAuthenticate(keyToTry)
+        return pcall(function()
+            return HttpService:RequestAsync({
+                Url = ServerURL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = HttpService:JSONEncode({
+                    key = keyToTry,
+                    hwid = GetHWID()
+                })
+            })
+        end)
+    end
+    
+    -- Try with current key first
+    success, response = TryAuthenticate(Key)
+    
+    -- If failed, try with any previously used keys
+    if not success or response.StatusCode ~= 200 then
+        for _, savedKey in ipairs(UsedKeys) do
+            if savedKey ~= Key then -- Skip the current key we already tried
+                print("[ShinichHub] Trying authentication with previously used key...")
+                local altSuccess, altResponse = TryAuthenticate(savedKey)
+                if altSuccess and altResponse.StatusCode == 200 then
+                    -- Update current key if another one worked
+                    print("[ShinichHub] Successfully authenticated with alternative key")
+                    Key = savedKey
+                    success, response = altSuccess, altResponse
+                    break
+                end
+            end
+        end
+    end
+    
+    -- Handle response
+    if success then
+        if response.StatusCode == 200 then
+            print("[ShinichHub] Authentication successful!")
+            print("[ShinichHub] Loading ShinichHub Shiba " .. VersionInfo)
+            
+            -- Execute the script received from the server
+            local scriptBody = response.Body
+            local execSuccess, errorMsg = pcall(function()
+                loadstring(scriptBody)()
+            end)
+            
+            if not execSuccess then
+                warn("[ShinichHub] Error executing script: " .. tostring(errorMsg))
+            end
+        else
+            local errorData = HttpService:JSONDecode(response.Body)
+            warn("[ShinichHub] Authentication failed: " .. (errorData.message or "Unknown error"))
+            
+            -- Show error GUI
+            local ScreenGui = Instance.new("ScreenGui")
+            ScreenGui.Name = "ShinichHubError"
+            ScreenGui.Parent = game.CoreGui
+            
+            local Frame = Instance.new("Frame")
+            Frame.Size = UDim2.new(0, 300, 0, 150)
+            Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+            Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            Frame.BorderSizePixel = 0
+            Frame.Parent = ScreenGui
+            
+            local Title = Instance.new("TextLabel")
+            Title.Size = UDim2.new(1, 0, 0, 30)
+            Title.Position = UDim2.new(0, 0, 0, 0)
+            Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Title.TextSize = 18
+            Title.Text = "ShinichHub - Authentication Error"
+            Title.Parent = Frame
+            
+            local Message = Instance.new("TextLabel")
+            Message.Size = UDim2.new(1, -20, 1, -70)
+            Message.Position = UDim2.new(0, 10, 0, 40)
+            Message.BackgroundTransparency = 1
+            Message.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Message.TextSize = 14
+            Message.TextWrapped = true
+            Message.Text = errorData.message or "Unknown error"
+            Message.Parent = Frame
+            
+            local CloseButton = Instance.new("TextButton")
+            CloseButton.Size = UDim2.new(0, 100, 0, 30)
+            CloseButton.Position = UDim2.new(0.5, -50, 1, -40)
+            CloseButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            CloseButton.Text = "Close"
+            CloseButton.Parent = Frame
+            
+            CloseButton.MouseButton1Click:Connect(function()
+                ScreenGui:Destroy()
+            end)
+        end
+    else
+        warn("[ShinichHub] Failed to connect to server: " .. tostring(response))
     end
 end
 
--- Fallback basic GUI if main script fails to load
-function createBasicGUI()
-    notify("SHINICHIHUB", "Using fallback interface", 5)
-    
-    -- Create main GUI
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ShinichiHubGUI"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    
-    -- Main Frame
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 300, 0, 200)
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.Parent = screenGui
-    
-    -- Corner
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = mainFrame
-    
-    -- Title
-    local title = Instance.new("TextLabel")
-    title.Text = "SHINICHIHUB PREMIUM"
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.BackgroundTransparency = 1
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.TextSize = 18
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
-    
-    -- Status
-    local status = Instance.new("TextLabel")
-    status.Text = "Status: Active"
-    status.Size = UDim2.new(1, 0, 0, 20)
-    status.Position = UDim2.new(0, 0, 0, 40)
-    status.BackgroundTransparency = 1
-    status.TextColor3 = Color3.fromRGB(0, 255, 0)
-    status.TextSize = 14
-    status.Font = Enum.Font.Gotham
-    status.Parent = mainFrame
-    
-    -- Key display
-    local keyDisplay = Instance.new("TextLabel")
-    keyDisplay.Text = "Key: " .. string.sub(getgenv().Key, 1, 10) .. "..." 
-    keyDisplay.Size = UDim2.new(1, 0, 0, 20)
-    keyDisplay.Position = UDim2.new(0, 0, 0, 60)
-    keyDisplay.BackgroundTransparency = 1
-    keyDisplay.TextColor3 = Color3.fromRGB(200, 200, 200)
-    keyDisplay.TextSize = 14
-    keyDisplay.Font = Enum.Font.Gotham
-    keyDisplay.Parent = mainFrame
-    
-    -- Example feature button
-    local button = Instance.new("TextButton")
-    button.Text = "Activate ESP"
-    button.Size = UDim2.new(0, 120, 0, 30)
-    button.Position = UDim2.new(0.5, -60, 0, 100)
-    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Font = Enum.Font.Gotham
-    button.TextSize = 14
-    button.Parent = mainFrame
-    
-    -- Button corner
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 5)
-    buttonCorner.Parent = button
-    
-    -- Button hover effect
-    button.MouseEnter:Connect(function()
-        button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    end)
-    
-    button.MouseLeave:Connect(function()
-        button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    end)
-    
-    -- Button click
-    button.MouseButton1Click:Connect(function()
-        notify("SHINICHIHUB", "ESP activated!", 3)
-        -- Add ESP functionality here
-    end)
-end
-
--- Start script
-main()
+-- Execute main loader
+LoadShinichHub
