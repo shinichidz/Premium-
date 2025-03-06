@@ -1,0 +1,26 @@
+local HttpService = game:GetService("HttpService")
+local KeyFileURL = "https://replit.com/@huyb57104/My-bot/raw/main/key.txt"  -- File chứa key
+
+getgenv().Key = getgenv().Key or "Nhập key của bạn vào đây"
+
+local function isValidKey(key)
+    local success, response = pcall(function()
+        return HttpService:GetAsync(KeyFileURL)
+    end)
+    
+    if success then
+        for line in response:gmatch("[^\r\n]+") do
+            if key == line then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+if isValidKey(getgenv().Key) then
+    print("Key hợp lệ! Kích hoạt script...")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/BountyAimBot/refs/heads/main/Baor"))()
+else
+    print("Key không hợp lệ! Vui lòng nhập key đúng.")
+end
