@@ -1,27 +1,84 @@
+
+-- Key verification script
 local HttpService = game:GetService("HttpService")
-local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/show-keys"
+local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/api/verify-key"
 
-local function isValidKey(key)
-    wait(20) -- Đợi 20 giây trước khi kiểm tra key
-
+-- Check if key is valid
+local function verifyKey(key)
     local success, response = pcall(function()
-        return HttpService:GetAsync(KeyCheckURL)
+        return HttpService:GetAsync(KeyCheckURL .. "?key=" .. key)
     end)
-
+    
     if success then
-        for line in response:gmatch("[^\r\n]+") do
-            if key == line then
-                return true
-            end
-        end
+        local data = HttpService:JSONDecode(response)
+        return data.valid
     end
     return false
 end
 
-if isValidKey(getgenv().Key) then
-    print("Key hợp lệ! Tải script...")
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiMainScript"))()
+-- Get key from environment
+local key = getgenv().Key
+
+-- Verify key
+if key then
+    local isValid = verifyKey(key)
+    
+    if isValid then
+        print("SHINICHIHUB: Key verified successfully!")
+        
+        -- Load your main script here
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiHubShiba"))()
+    else
+        -- Show UI error with key invalid message
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Name = "ShinichiHubError"
+        ScreenGui.Parent = game.CoreGui
+        
+        local Frame = Instance.new("Frame")
+        Frame.Size = UDim2.new(0, 300, 0, 150)
+        Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
+        Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        Frame.BorderSizePixel = 0
+        Frame.Parent = ScreenGui
+        
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, 0, 0, 30)
+        Title.Position = UDim2.new(0, 0, 0, 0)
+        Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        Title.BorderSizePixel = 0
+        Title.Text = "SHINICHIHUB ERROR"
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.Font = Enum.Font.SourceSansBold
+        Title.TextSize = 18
+        Title.Parent = Frame
+        
+        local Message = Instance.new("TextLabel")
+        Message.Size = UDim2.new(1, -20, 1, -60)
+        Message.Position = UDim2.new(0, 10, 0, 40)
+        Message.BackgroundTransparency = 1
+        Message.Text = "Invalid key! Please check your key or get a new one from SHINICHIHUB discord."
+        Message.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Message.Font = Enum.Font.SourceSans
+        Message.TextSize = 16
+        Message.TextWrapped = true
+        Message.Parent = Frame
+        
+        -- Close button
+        local CloseButton = Instance.new("TextButton")
+        CloseButton.Size = UDim2.new(0, 100, 0, 30)
+        CloseButton.Position = UDim2.new(0.5, -50, 0.8, -10)
+        CloseButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        CloseButton.BorderSizePixel = 0
+        CloseButton.Text = "Close"
+        CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CloseButton.Font = Enum.Font.SourceSansBold
+        CloseButton.TextSize = 16
+        CloseButton.Parent = Frame
+        
+        CloseButton.MouseButton1Click:Connect(function()
+            ScreenGui:Destroy()
+        end)
+    end
 else
-    print("Key không hợp lệ! Thoát game...")
-    game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key.")
+    warn("SHINICHIHUB: No key provided!")
 end
