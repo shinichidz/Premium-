@@ -1,111 +1,42 @@
 
--- ShinichHub Shiba Loader
--- Main entry point for GitHub
+-- ShinichHub Shiba Script (GitHub Version)
+-- Created by ShinichHub team
 
--- Wait for game and player to load
-repeat wait() until game:IsLoaded() and game.Players.LocalPlayer
-
--- Configuration
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local VersionInfo = "v1.0.2"
+
+-- Get the Key from environment
+local Key = getgenv().Key
+if not Key then
+    warn("[ShinichHub] Error: No key provided. Please set your key with getgenv().Key = 'YOUR_KEY'")
+    return
+end
+
+-- Server URL - Using your Replit URL
 local ServerURL = "https://shinichihub.replit.app/load"
 
--- Main loader function
-local function LoadShinichHub()
-    -- Check if key is provided, or try multiple keys
-    local Key = getgenv().Key
-    local BackupKeys = getgenv().BackupKeys or {}
-    
-    if not Key and #BackupKeys == 0 then
-        warn("[ShinichHub] Error: No key provided. Please set your key with getgenv().Key = 'YOUR_KEY'")
-        return
-    end
-    
-    -- Create a table of all keys to try
-    local KeysToTry = {}
-    if Key then
-        table.insert(KeysToTry, Key)
-    end
-    
-    -- Add backup keys
-    for _, backupKey in ipairs(BackupKeys) do
-        table.insert(KeysToTry, backupKey)
-    end
-    
-    print("[ShinichHub] Initializing ShinichHub Shiba " .. VersionInfo)
-    
-    -- Get hardware ID
-    local function GetHWID()
-        local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-        return hwid or "Unknown"
-    end
-    
-    -- Store previously used keys
-    local UsedKeys = {}
-    if isfile and isfile("ShinichHubKeys.json") then
-        local success, result = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(readfile("ShinichHubKeys.json"))
-        end)
-        if success then
-            UsedKeys = result
-            -- Add current key to used keys if not already there
-            if Key and not table.find(UsedKeys, Key) then
-                table.insert(UsedKeys, Key)
-                if writefile then
-                    pcall(function()
-                        writefile("ShinichHubKeys.json", game:GetService("HttpService"):JSONEncode(UsedKeys))
-                    end)
-                end
-            end
-        end
-    elseif writefile and Key then
-        UsedKeys = {Key}
-        pcall(function()
-            writefile("ShinichHubKeys.json", game:GetService("HttpService"):JSONEncode(UsedKeys))
-        end)
-    end
-    
-    -- Make request to server with current key first
-    local HttpService = game:GetService("HttpService")
-    local success, response
-    
-    -- Function to try authentication with a specific key
-    local function TryAuthenticate(keyToTry)
-        return pcall(function()
-            return HttpService:RequestAsync({
-                Url = ServerURL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = HttpService:JSONEncode({
-                    key = keyToTry,
-                    hwid = GetHWID()
-                })
+local function GetHWID()
+    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
+    return hwid or "Unknown"
+end
+
+local function LoadScript()
+    local success, response = pcall(function()
+        return HttpService:RequestAsync({
+            Url = ServerURL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode({
+                key = Key,
+                hwid = GetHWID()
             })
-        end)
-    end
+        })
+    end)
     
-    -- Try with current key first
-    success, response = TryAuthenticate(Key)
-    
-    -- If failed, try with any previously used keys
-    if not success or response.StatusCode ~= 200 then
-        for _, savedKey in ipairs(UsedKeys) do
-            if savedKey ~= Key then -- Skip the current key we already tried
-                print("[ShinichHub] Trying authentication with previously used key...")
-                local altSuccess, altResponse = TryAuthenticate(savedKey)
-                if altSuccess and altResponse.StatusCode == 200 then
-                    -- Update current key if another one worked
-                    print("[ShinichHub] Successfully authenticated with alternative key")
-                    Key = savedKey
-                    success, response = altSuccess, altResponse
-                    break
-                end
-            end
-        end
-    end
-    
-    -- Handle response
     if success then
         if response.StatusCode == 200 then
             print("[ShinichHub] Authentication successful!")
@@ -113,64 +44,27 @@ local function LoadShinichHub()
             
             -- Execute the script received from the server
             local scriptBody = response.Body
-            local execSuccess, errorMsg = pcall(function()
+            local success, errorMsg = pcall(function()
                 loadstring(scriptBody)()
             end)
             
-            if not execSuccess then
+            if not success then
                 warn("[ShinichHub] Error executing script: " .. tostring(errorMsg))
             end
         else
             local errorData = HttpService:JSONDecode(response.Body)
             warn("[ShinichHub] Authentication failed: " .. (errorData.message or "Unknown error"))
-            
-            -- Show error GUI
-            local ScreenGui = Instance.new("ScreenGui")
-            ScreenGui.Name = "ShinichHubError"
-            ScreenGui.Parent = game.CoreGui
-            
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(0, 300, 0, 150)
-            Frame.Position = UDim2.new(0.5, -150, 0.5, -75)
-            Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            Frame.BorderSizePixel = 0
-            Frame.Parent = ScreenGui
-            
-            local Title = Instance.new("TextLabel")
-            Title.Size = UDim2.new(1, 0, 0, 30)
-            Title.Position = UDim2.new(0, 0, 0, 0)
-            Title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-            Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Title.TextSize = 18
-            Title.Text = "ShinichHub - Authentication Error"
-            Title.Parent = Frame
-            
-            local Message = Instance.new("TextLabel")
-            Message.Size = UDim2.new(1, -20, 1, -70)
-            Message.Position = UDim2.new(0, 10, 0, 40)
-            Message.BackgroundTransparency = 1
-            Message.TextColor3 = Color3.fromRGB(255, 255, 255)
-            Message.TextSize = 14
-            Message.TextWrapped = true
-            Message.Text = errorData.message or "Unknown error"
-            Message.Parent = Frame
-            
-            local CloseButton = Instance.new("TextButton")
-            CloseButton.Size = UDim2.new(0, 100, 0, 30)
-            CloseButton.Position = UDim2.new(0.5, -50, 1, -40)
-            CloseButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            CloseButton.Text = "Close"
-            CloseButton.Parent = Frame
-            
-            CloseButton.MouseButton1Click:Connect(function()
-                ScreenGui:Destroy()
-            end)
         end
     else
         warn("[ShinichHub] Failed to connect to server: " .. tostring(response))
     end
 end
 
--- Execute main loader
-LoadShinichHub()
+-- Wait for game to fully load
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- Initialize the hub
+print("[ShinichHub] Initializing ShinichHub Shiba " .. VersionInfo)
+LoadScript()
