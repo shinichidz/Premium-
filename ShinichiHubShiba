@@ -2,10 +2,12 @@ local HttpService = game:GetService("HttpService")
 local KeyCheckURL = "https://9e737e22-68e3-4ceb-8f2b-1b39eb08a1ab-00-394kcklzkji3d.pike.replit.dev/show-keys"
 
 local function isValidKey(key)
+    wait(20) -- Đợi 20 giây trước khi kiểm tra key
+
     local success, response = pcall(function()
         return HttpService:GetAsync(KeyCheckURL)
     end)
-    
+
     if success then
         for line in response:gmatch("[^\r\n]+") do
             if key == line then
@@ -17,8 +19,8 @@ local function isValidKey(key)
 end
 
 if isValidKey(getgenv().Key) then
-    print("Key hợp lệ! Chạy script...")
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/your-username/your-repo/main/ShinichiHubShiba.lua"))()
+    print("Key hợp lệ! Tải script...")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/shinichidz/Premium-/refs/heads/main/ShinichiMainScript"))()
 else
     print("Key không hợp lệ! Thoát game...")
     game.Players.LocalPlayer:Kick("Key không hợp lệ! Vui lòng nhập đúng key.")
